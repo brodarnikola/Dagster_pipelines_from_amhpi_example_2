@@ -1,0 +1,16 @@
+dagster==1.9.11
+dagster-webserver==1.9.11
+dagster-docker
+dagster-pipes==1.9.11
+dagster-postgres
+#dagster-graphql==1.9.11
+pandas
+sqlalchemy
+psycopg2-binary
+boto3 #this is for connecting dagster sensor with minio
+botocore #this is for connecting dagster sensor with minio
+s3fs
+openpyxl
+datetime
+dagster-aws==0.25.11  # Add this line
+#simplejson

@@ -1,0 +1,135 @@
+services:
+ 
+
+  dagster_postgresql:
+    image: postgres:11
+    container_name: dagster_postgresql
+    environment:
+      POSTGRES_USER: "postgres_user"
+      POSTGRES_PASSWORD: "postgres_password"
+      POSTGRES_DB: "postgres_db"
+    networks:
+      #- docker_example_network
+      #- dagster_network
+      - ecdwh_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres_user -d postgres_db"]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+  dagster_file_converter:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_file_converter
+    container_name: dagster_file_converter
+    image: dagster_file_converter_image #docker_example_user_code_image
+    restart: always
+    environment:
+      DAGSTER_POSTGRES_HOST: "dagster_postgresql"
+      DAGSTER_POSTGRES_USER: "postgres_user"
+      DAGSTER_POSTGRES_PASSWORD: "postgres_password"
+      DAGSTER_POSTGRES_DB: "postgres_db"
+      DAGSTER_CURRENT_IMAGE: "dagster_file_converter_image"
+      DATABASE_IP: "psqldb"
+      DATABASE_PORT: 5432
+      DATABASE_USER: "ebcont"
+      DATABASE_PASSWORD: "ebcont"
+      DATABASE_NAME: "ecdwh"
+      MINIO_ENDPOINT: "http://minio:9001"  # Use service name
+      MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
+      MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
+      MINIO_BUCKET_NAME: "ecvw"
+    ports:
+      - "4000:4000"  # Ensure this port is exposed
+    networks:
+      #- docker_example_network
+      #- dagster_network
+      - ecdwh_net
+    volumes: 
+      - ./my_dagster_code:/opt/dagster/app   #/opt/dagster-data 
+
+  # This service runs dagster-webserver, which loads your user code from the user code container.
+  # Since our instance uses the QueuedRunCoordinator, any runs submitted from the webserver will be put on
+  # a queue and later dequeued and launched by dagster-daemon.
+  dagster_webserver:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_setup
+    entrypoint:
+      - dagster-webserver
+      - -h
+      - "0.0.0.0"
+      - -p
+      - "3000"
+      - -w
+      - workspace.yaml
+    container_name: dagster_webserver
+    expose:
+      - "3000"
+    ports:
+      - "3000:3000"
+    environment:
+      DAGSTER_POSTGRES_HOST: "dagster_postgresql"
+      DAGSTER_POSTGRES_USER: "postgres_user"
+      DAGSTER_POSTGRES_PASSWORD: "postgres_password"
+      DAGSTER_POSTGRES_DB: "postgres_db"
+      MINIO_ENDPOINT: "http://minio:9001"  # Use service name
+      MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
+      MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
+      MINIO_BUCKET_NAME: "ecvw"
+    volumes: # Make docker client accessible so we can terminate containers from the webserver
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/io_manager_storage:/tmp/io_manager_storage
+    networks:
+      #- docker_example_network
+      #- dagster_network
+      - ecdwh_net
+    depends_on:
+      dagster_postgresql:
+        condition: service_healthy
+      dagster_file_converter:
+        condition: service_started
+
+  # This service runs the dagster-daemon process, which is responsible for taking runs
+  # off of the queue and launching them, as well as creating runs from schedules or sensors.
+  dagster_daemon:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_setup
+    entrypoint:
+      - dagster-daemon
+      - run
+    container_name: dagster_daemon
+    restart: on-failure
+    environment:
+      DAGSTER_POSTGRES_HOST: "dagster_postgresql"
+      DAGSTER_POSTGRES_USER: "postgres_user"
+      DAGSTER_POSTGRES_PASSWORD: "postgres_password"
+      DAGSTER_POSTGRES_DB: "postgres_db"
+      DATABASE_IP: "psqldb"
+      DATABASE_PORT: 5432
+      DATABASE_USER: "ebcont"
+      DATABASE_PASSWORD: "ebcont"
+      DATABASE_NAME: "ecdwh"
+      MINIO_ENDPOINT: "http://minio:9001"  # Use service name
+      MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
+      MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
+      MINIO_BUCKET_NAME: "ecvw"
+    volumes: # Make docker client accessible so we can launch containers using host docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/io_manager_storage:/tmp/io_manager_storage
+    networks:
+      #- docker_example_network
+      #- dagster_network
+      - ecdwh_net
+    depends_on:
+      dagster_postgresql:
+        condition: service_healthy
+      dagster_file_converter:
+        condition: service_started
+ 
+networks:
+  ecdwh_net:
+    driver: bridge
+    name: ecdwh_net
+    external: true 
