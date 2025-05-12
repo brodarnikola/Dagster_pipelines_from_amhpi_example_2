@@ -1,0 +1,15 @@
+
+pipeline neki flag od dagster za openmetadata --> to probati naci
+
+dagster commentari za op
+
+binary log (od baze) openmetadata  -> nije sad bitno
+
+
+
+create database omd_airflow template = "template0" lc_collate = 'C' lc_ctype = 'C';
+create database openmetadata template = "template0" lc_collate = 'C' lc_ctype = 'C';
+
+
+
+

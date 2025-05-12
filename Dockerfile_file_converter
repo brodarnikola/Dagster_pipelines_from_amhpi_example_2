@@ -13,13 +13,23 @@ RUN apt-get update && apt-get install -y nano  # Install nano
 
 # Copy all necessary files
 #COPY definitions.py excel_config.env MM_BIL.py requirements.txt /my_dagster_code/ /opt/dagster/app/
-COPY  requirements.txt /my_dagster_code/ /opt/dagster/app/
+#COPY  requirements.txt  /my_dagster_code/ /opt/dagster/app/
 
-RUN pip install -r requirements.txt
-RUN pip install --upgrade pip setuptools
+COPY requirements.txt  /my_dagster_code/ /opt/dagster/app/
+
+# RUN pip install -r requirements.txt
+# RUN pip install --upgrade pip setuptools
 # Run dagster gRPC server on port 4000
+RUN pip install --upgrade pip setuptools && \
+    pip install -r requirements.txt
 
 EXPOSE 4000
 
+
+# For new versions of dagster-webserver, we need to run the following command, this -----> code-server, start
+# This command will automatically refresh the code-server when the code changes
+#CMD ["dagster", "code-server", "start", "-h", "0.0.0.0", "-p", "4000", "-f", "definitions.py"]
+CMD ["dagster", "code-server", "start", "-h", "0.0.0.0", "-p", "4000", "-f", "SCRIPT16.py"] 
+
+# For old versions of dagster-webserver, we need to run the following command, this -----> api, grpc
 #CMD ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-f", "definitions.py"]
-CMD ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-f", "SCRIPT16.py"]

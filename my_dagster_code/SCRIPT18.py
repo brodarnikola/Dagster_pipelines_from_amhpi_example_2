@@ -3,11 +3,12 @@
 # Additional dependencies: dagster, psycopg2-binary
 
 import dagster
-from dagster import asset, define_asset_job, MetadataValue, MaterializeResult
+from dagster import get_dagster_logger, asset, define_asset_job, MetadataValue, MaterializeResult
 import pandas as pd
 import sqlalchemy
 import psycopg2
 import os
+import requests
 
 # Connection constants for Postgres
 POSTGRES_HOST = "psqldb"
@@ -19,23 +20,23 @@ POSTGRES_SCHEMA = "public"
 POSTGRES_TABLE = "simple_csv"
 
 @asset(
-    description="YES 9, raw data extracted from username.csv file",
+    description="Raw data extracted from username.csv file",
     group_name="csv_processing"
 )
 def csv_file_input():
     """
-    Awesome function 9, read data from username.csv file
+    Read data from username.csv file
     """
     data = pd.read_csv("username.csv", sep=";").convert_dtypes()
     return data
 
 @asset(
-    description="Awersome function 2, data filtered to only include names containing 'ra'",
+    description="Data filtered to only include names containing 'ra'",
     group_name="csv_processing"
 )
 def filtered_data(csv_file_input: pd.DataFrame):
     """
-    Yes 2, Filter rows based on condition - names containing 'ra'
+    Filter rows based on condition - names containing 'ra'
     """
     filtered = csv_file_input[csv_file_input['First name'].str.contains("ra", na=False)]
     return filtered
@@ -64,6 +65,9 @@ def postgres_output(context, sorted_data: pd.DataFrame):
     """
     Write filtered data to Postgres database table simple_csv
     """
+        
+        
+    logger = get_dagster_logger()
     # Connect to the Postgres database
     engine = sqlalchemy.create_engine(
         f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE_NAME}"
@@ -85,13 +89,41 @@ def postgres_output(context, sorted_data: pd.DataFrame):
             schema=POSTGRES_SCHEMA
         )
         
-        # Add metadata about the database operation
+        logger.info(f"Data written to PostgreSQL table '{POSTGRES_TABLE}'")
+        logger.info(f"Rows written: {len(transformed_data)}")
+        # Add metadata about the operation
+        context.add_output_metadata({
+            "row_count": MetadataValue.int(len(transformed_data)),
+            "target_table": MetadataValue.text(f"{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"),
+            "database": MetadataValue.text(POSTGRES_DATABASE_NAME)
+        
+        })
+        # Add lineage information
+        context.add_output_metadata({
+            "lineage": MetadataValue.text(f"Lineage from Dagster to PostgreSQL table '{POSTGRES_TABLE}'")
+        })
+        # Add lineage information to OpenMetadata
+        # Assuming you have a function to get the OpenMetadata connection 
+        
+        logger.info("Adding lineage to OpenMetadata...")
+        logger.info("Lineage added to OpenMetadata.")
+        logger.info(f"Lineage fromEntity Dagster to PostgreSQL table '{context.asset_key.path[-1]}'")
+        logger.info(f"Lineage toEntity Dagster to PostgreSQL table '{context.asset_key.path[-1]}'")
+        logger.info(f"Lineage toEntity Dagster to PostgreSQL table '{POSTGRES_SCHEMA}.{POSTGRES_TABLE}'")
+        
+        # Push lineage to OpenMetadata
+        requests.post(
+            "http://openmetadata_server:8585/api/v1/lineage",
+            json={
+                "fromEntity": f"pipeline/dagster.{context.asset_key.path[-1]}",
+                "toEntity": f"table/postgres.{POSTGRES_SCHEMA}.{POSTGRES_TABLE}",
+                "description": f"Dagster pipeline {context.asset_key.path[-1]}"
+            },
+            #headers={"Authorization": "Bearer YOUR_TOKEN"}
+        )
+
         return MaterializeResult(
-            metadata={
-                "row_count": MetadataValue.int(len(transformed_data)),
-                "target_table": MetadataValue.text(f"{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"),
-                "database_connection": MetadataValue.text(f"postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE_NAME}")
-            }
+            metadata={"rows_loaded": len(transformed_data)}
         )
     finally:
         engine.dispose()
@@ -100,7 +132,7 @@ def postgres_output(context, sorted_data: pd.DataFrame):
 simple_pipeline_job = define_asset_job(
     name="simple_pipeline_job",
     selection=["csv_file_input", "filtered_data",  "sorted_data", "postgres_output"],
-    description="Yes, new text, pipeline that reads CSV data, filters it, and loads to PostgreSQL"
+    description="Pipeline that reads CSV data, filters it, and loads to PostgreSQL"
 )
 
 # This makes the assets discoverable by Dagster
