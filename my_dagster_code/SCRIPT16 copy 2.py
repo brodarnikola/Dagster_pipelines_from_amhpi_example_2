@@ -9,6 +9,10 @@ import sqlalchemy
 import psycopg2
 import os
 
+from metadata.ingestion.ometa.ometa_api import OpenMetadata
+from metadata.generated.schema.entity.data.pipeline import Pipeline
+
+
 # Connection constants for Postgres
 POSTGRES_HOST = "psqldb"
 POSTGRES_PORT = "5432"
@@ -62,7 +66,7 @@ def sorted_data(filtered_data: pd.DataFrame):
 )
 def postgres_output(context, sorted_data: pd.DataFrame):
     """
-    Write filtered data to Postgres database table simple_csv
+    Write filtered data to Postgres database table simple_csv and track lineage
     """
     # Connect to the Postgres database
     engine = sqlalchemy.create_engine(
@@ -86,21 +90,87 @@ def postgres_output(context, sorted_data: pd.DataFrame):
         )
         
         # Add metadata about the database operation
-        return MaterializeResult(
+        result = MaterializeResult(
             metadata={
                 "row_count": MetadataValue.int(len(transformed_data)),
                 "target_table": MetadataValue.text(f"{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"),
                 "database_connection": MetadataValue.text(f"postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE_NAME}")
             }
         )
+        
+        # Track lineage in OpenMetadata
+        metadata_config = {
+            "hostPort": "http://openmetadata-server:8585/api",
+            "authProvider": "no-auth",
+        }
+        metadata = OpenMetadata(metadata_config)
+
+        lineage_data = Pipeline(
+            name="E_Control_Storm_Gas_PIPELINE1",
+            service="dagster_service",
+            tasks=[
+                {"name": "csv_file_input", "upstreamTasks": [], "downstreamTasks": ["filtered_data"]},
+                {"name": "filtered_data", "upstreamTasks": ["csv_file_input"], "downstreamTasks": ["sorted_data"]},
+                {"name": "sorted_data", "upstreamTasks": ["filtered_data"], "downstreamTasks": ["postgres_output"]},
+                {"name": "postgres_output", "upstreamTasks": ["sorted_data"], "downstreamTasks": []},
+            ],
+        )
+
+        metadata.create_or_update(lineage_data)
+        return result
     finally:
         engine.dispose()
+
+# @asset(
+#     description=f"Data loaded into PostgreSQL table '{POSTGRES_TABLE}'",
+#     group_name="database_output",
+#     metadata={
+#         "database": POSTGRES_DATABASE_NAME,
+#         "schema": POSTGRES_SCHEMA,
+#         "table": POSTGRES_TABLE
+#     }
+# )
+# def postgres_output(context, sorted_data: pd.DataFrame):
+#     """
+#     Write filtered data to Postgres database table simple_csv
+#     """
+#     # Connect to the Postgres database
+#     engine = sqlalchemy.create_engine(
+#         f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE_NAME}"
+#     )
+    
+#     # Rename columns based on the mapping
+#     transformed_data = sorted_data.rename(columns={"First name": "field_name"})
+    
+#     # Only keep relevant columns
+#     transformed_data = transformed_data[["field_name"]]
+    
+#     # Write DataFrame to Postgres
+#     try:
+#         transformed_data.to_sql(
+#             name=POSTGRES_TABLE,
+#             con=engine,
+#             if_exists="append",
+#             index=False,
+#             schema=POSTGRES_SCHEMA
+#         )
+        
+#         # Add metadata about the database operation
+#         return MaterializeResult(
+#             metadata={
+#                 "row_count": MetadataValue.int(len(transformed_data)),
+#                 "target_table": MetadataValue.text(f"{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"),
+#                 "database_connection": MetadataValue.text(f"postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DATABASE_NAME}")
+#             }
+#         )
+#     finally:
+#         engine.dispose()
 
 # Define a job that will execute the assets
 simple_pipeline_job = define_asset_job(
     name="simple_pipeline_job",
     selection=["csv_file_input", "filtered_data", "sorted_data", "postgres_output"],
-    description="Yes, OLE, new text, pipeline that reads CSV data, filters it, and loads to PostgreSQL"
+    description="Yes, OLE, AWESOME 11 new text, pipeline that reads CSV data, filters it, and loads to PostgreSQL"
 )
 
 # This makes the assets discoverable by Dagster
@@ -108,5 +178,3 @@ defs = dagster.Definitions(
     assets=[csv_file_input, filtered_data, sorted_data, postgres_output],
     jobs=[simple_pipeline_job]
 )
-
-

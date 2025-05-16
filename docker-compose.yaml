@@ -25,6 +25,10 @@ services:
     image: dagster_file_converter_image #docker_example_user_code_image
     restart: always
     environment:
+      # Add these environment variables
+      #DAGSTER_WATCHER_POLLING_INTERVAL: "10"  # Check for changes every 1 second
+      #DAGSTER_WATCHER_POLLING: "true"  # Force polling mode
+
       DAGSTER_POSTGRES_HOST: "dagster_postgresql"
       DAGSTER_POSTGRES_USER: "postgres_user"
       DAGSTER_POSTGRES_PASSWORD: "postgres_password"
@@ -47,6 +51,8 @@ services:
       - ecdwh_net
     volumes: 
       - ./my_dagster_code:/opt/dagster/app   #/opt/dagster-data 
+      # Add this for better file watching in Docker
+      #- /etc/localtime:/etc/localtime:ro
 
   # This service runs dagster-webserver, which loads your user code from the user code container.
   # Since our instance uses the QueuedRunCoordinator, any runs submitted from the webserver will be put on
