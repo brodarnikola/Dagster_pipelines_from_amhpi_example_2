@@ -366,7 +366,7 @@ def get_db_connection():
 def download_file_job():
     """Dagster job to fetch and parse Excel data."""
     excel_data = fetch_and_parse_files_from_minio()
-    write_data_to_postgres(excel_data)
+    write_data_to_postgres(excel_data) # writing data to postrgres, to table File and File_data
 
 
 @sensor(

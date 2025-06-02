@@ -170,122 +170,36 @@ def postgres_output(context, sorted_data: pd.DataFrame):
         
         # Get table references (you'll need to replace these with actual UUIDs)
         try:
-            logger.info(f"Metadata client: {metadata}")
-            
-            # Import required classes for table creation
-            from metadata.generated.schema.entity.data.table import Table, Column, DataType
-            from metadata.generated.schema.api.data.createTable import CreateTableRequest
-            from metadata.generated.schema.entity.services.databaseService import DatabaseService
-            from metadata.generated.schema.entity.data.database import Database
-            
-            # First, ensure the database service exists
-            db_service = metadata.get_by_name(
-                entity=DatabaseService,
-                fqn="E_Control_Storm_Gas6"  # The name of your database service in OpenMetadata
-            )
-            
-            if not db_service:
-                logger.warning("Database service not found in OpenMetadata, cannot create tables")
-            else:
-                # Ensure database exists
-                database = metadata.get_by_name(
-                    entity=Database,
-                    fqn=f"E_Control_Storm_Gas6.{POSTGRES_DATABASE_NAME}"
-                )
-                
-                if not database:
-                    logger.warning(f"Database {POSTGRES_DATABASE_NAME} not found in OpenMetadata")
-                # else:
-                #     # Create source table if it doesn't exist
-                #     source_table = metadata.get_by_name(
-                #         entity=Table,
-                #         fqn=f"E_Control_Storm_Gas6.{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.file"
-                #     )
-                    
-                #     if not source_table:
-                #         # Create source table
-                #         source_table_request = CreateTableRequest(
-                #             name="file",
-                #             databaseSchema=f"{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}",
-                #             columns=[
-                #                 Column(
-                #                     name="field_name",
-                #                     dataType=DataType.STRING,
-                #                     description="First name field"
-                #                 )
-                #             ],
-                #             description="Source CSV file data"
-                #         )
-                        
-                #         source_table = metadata.create_or_update(source_table_request)
-                #         logger.info(f"Created source table: {source_table.name}")
-                    
-                #     # Create target table if it doesn't exist
-                #     target_table = metadata.get_by_name(
-                #         entity=Table,
-                #         fqn=f"E_Control_Storm_Gas6.{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"
-                #     )
-                    
-                #     if not target_table:
-                #         # Create target table
-                #         target_table_request = CreateTableRequest(
-                #             name=POSTGRES_TABLE,
-                #             databaseSchema=f"{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}",
-                #             columns=[
-                #                 Column(
-                #                     name="field_name",
-                #                     dataType=DataType.STRING,
-                #                     description="First name field"
-                #                 )
-                #             ],
-                #             description="Processed CSV data"
-                #         )
-                        
-                #         target_table = metadata.create_or_update(target_table_request)
-                #         logger.info(f"Created target table: {target_table.name}")
-            
-            # Now try to fetch the tables again to create lineage
             source_table = metadata.get_by_name(
-                entity=Table,
-                fqn=f"E_Control_Storm_Gas6.{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.mm_bil_2"
+                entity="table",
+                fqn=f"{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.file"  # Replace with actual source
             )
-            logger.info(f"Source table after creation: {source_table}")
             
             target_table = metadata.get_by_name(
-                entity=Table,
-                fqn=f"E_Control_Storm_Gas6.{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"
+                entity="table",
+                fqn=f"{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"
             )
-            logger.info(f"Target table after creation: {target_table}")
             
-            # Only create lineage if tables exist
-            if source_table is not None and hasattr(source_table, 'id'):
-                source_lineage = AddLineageRequest(
+            # Create lineage edges if tables exist
+            if source_table:
+                metadata.add_lineage(AddLineageRequest(
                     edge=EntitiesEdge(
                         fromEntity=EntityReference(id=source_table.id, type="table"),
                         toEntity=EntityReference(id=pipeline_entity.id, type="pipeline")
                     )
-                )
-                metadata.add_lineage(source_lineage)
+                ))
                 logger.info("Created source lineage")
-            else:
-                logger.warning(f"Source table still not found after creation attempt")
             
-            if target_table is not None and hasattr(target_table, 'id'):
-                target_lineage = AddLineageRequest(
+            if target_table:
+                metadata.add_lineage(AddLineageRequest(
                     edge=EntitiesEdge(
                         fromEntity=EntityReference(id=pipeline_entity.id, type="pipeline"),
                         toEntity=EntityReference(id=target_table.id, type="table")
                     )
-                )
-                metadata.add_lineage(target_lineage)
+                ))
                 logger.info("Created target lineage")
-            else:
-                logger.warning(f"Target table still not found after creation attempt")
-                
         except Exception as le:
-            logger.error(f"Could not create lineage: {str(le)}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.warning(f"Could not create lineage: {str(le)}")
         
         return MaterializeResult(
             metadata={

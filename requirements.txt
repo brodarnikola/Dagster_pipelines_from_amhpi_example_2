@@ -1,16 +1,49 @@
-dagster==1.9.11
-dagster-webserver==1.9.11
+# dagster==1.9.11
+# dagster-webserver==1.9.11
+# dagster-docker
+# dagster-pipes==1.9.11
+# dagster-postgres
+# #dagster-graphql==1.9.11
+# pandas
+
+# sqlalchemy
+
+# psycopg2-binary
+
+# watchdog
+
+# boto3 #this is for connecting dagster sensor with minio
+# botocore #this is for connecting dagster sensor with minio
+# s3fs
+# openpyxl
+# datetime
+# dagster-aws==0.25.11  # Add this line
+# openmetadata-ingestion==1.6.1
+#simplejson
+
+
+
+
+
+dagster
+dagster-webserver
 dagster-docker
-dagster-pipes==1.9.11
+dagster-pipes
 dagster-postgres
 #dagster-graphql==1.9.11
 pandas
+
 sqlalchemy
+
 psycopg2-binary
+
+watchdog
+
 boto3 #this is for connecting dagster sensor with minio
 botocore #this is for connecting dagster sensor with minio
 s3fs
 openpyxl
 datetime
-dagster-aws==0.25.11  # Add this line
+dagster-aws  # Add this line
+openmetadata-ingestion==1.6.1
 #simplejson

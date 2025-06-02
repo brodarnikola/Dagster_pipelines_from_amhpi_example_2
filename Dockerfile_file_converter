@@ -1,35 +1,21 @@
 FROM --platform=linux/arm64 python:3.10-slim
 
-# Checkout and install dagster libraries needed to run the gRPC server
-# exposing your repository to dagster-webserver and dagster-daemon, and to load the DagsterInstance
-
-#RUN pip install --upgrade pip setuptools
-
-# Add repository code
-
 WORKDIR /opt/dagster/app
 
-RUN apt-get update && apt-get install -y nano  # Install nano
+RUN apt-get update && apt-get install -y nano
 
-# Copy all necessary files
-#COPY definitions.py excel_config.env MM_BIL.py requirements.txt /my_dagster_code/ /opt/dagster/app/
-#COPY  requirements.txt  /my_dagster_code/ /opt/dagster/app/
+COPY requirements.txt /my_dagster_code/ /opt/dagster/app/
 
-COPY requirements.txt  /my_dagster_code/ /opt/dagster/app/
-
-# RUN pip install -r requirements.txt
-# RUN pip install --upgrade pip setuptools
-# Run dagster gRPC server on port 4000
 RUN pip install --upgrade pip setuptools && \
     pip install -r requirements.txt
 
+RUN pip install watchdog
+
 EXPOSE 4000
 
+# Set environment variables for auto-reload
+ENV DAGSTER_WATCHER_POLLING=true
+ENV DAGSTER_WATCHER_POLLING_INTERVAL=10
 
-# For new versions of dagster-webserver, we need to run the following command, this -----> code-server, start
-# This command will automatically refresh the code-server when the code changes
-#CMD ["dagster", "code-server", "start", "-h", "0.0.0.0", "-p", "4000", "-f", "definitions.py"]
-CMD ["dagster", "code-server", "start", "-h", "0.0.0.0", "-p", "4000", "-f", "SCRIPT16.py"] 
-
-# For old versions of dagster-webserver, we need to run the following command, this -----> api, grpc
-#CMD ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-f", "definitions.py"]
+# Start code server with basic command (environment variables will handle the reload)
+CMD ["dagster", "code-server", "start", "-h", "0.0.0.0", "-p", "4000", "-f", "SCRIPT16.py"]
