@@ -29,11 +29,11 @@ from metadata.generated.schema.entity.services.pipelineService import PipelineSe
 from metadata.generated.schema.entity.services.connections.pipeline.airflowConnection import AirflowConnection
 
 # Connection constants for Postgres
-POSTGRES_HOST = "psqldb"
+POSTGRES_HOST = "ragpsqldb"
 POSTGRES_PORT = "5432"
-POSTGRES_DATABASE_NAME = "ecdwh"
-POSTGRES_USERNAME = "bruno"
-POSTGRES_PASSWORD = "bruno"
+POSTGRES_DATABASE_NAME = "ragdb"
+POSTGRES_USERNAME = "ebcont"
+POSTGRES_PASSWORD = "ebcont"
 POSTGRES_SCHEMA = "public"
 POSTGRES_TABLE = "simple_csv"
 
@@ -194,56 +194,8 @@ def postgres_output(context, sorted_data: pd.DataFrame):
                 )
                 
                 if not database:
-                    logger.warning(f"Database {POSTGRES_DATABASE_NAME} not found in OpenMetadata")
-                # else:
-                #     # Create source table if it doesn't exist
-                #     source_table = metadata.get_by_name(
-                #         entity=Table,
-                #         fqn=f"E_Control_Storm_Gas6.{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.file"
-                #     )
+                    logger.warning(f"Database {POSTGRES_DATABASE_NAME} not found in OpenMetadata") 
                     
-                #     if not source_table:
-                #         # Create source table
-                #         source_table_request = CreateTableRequest(
-                #             name="file",
-                #             databaseSchema=f"{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}",
-                #             columns=[
-                #                 Column(
-                #                     name="field_name",
-                #                     dataType=DataType.STRING,
-                #                     description="First name field"
-                #                 )
-                #             ],
-                #             description="Source CSV file data"
-                #         )
-                        
-                #         source_table = metadata.create_or_update(source_table_request)
-                #         logger.info(f"Created source table: {source_table.name}")
-                    
-                #     # Create target table if it doesn't exist
-                #     target_table = metadata.get_by_name(
-                #         entity=Table,
-                #         fqn=f"E_Control_Storm_Gas6.{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}.{POSTGRES_TABLE}"
-                #     )
-                    
-                #     if not target_table:
-                #         # Create target table
-                #         target_table_request = CreateTableRequest(
-                #             name=POSTGRES_TABLE,
-                #             databaseSchema=f"{POSTGRES_DATABASE_NAME}.{POSTGRES_SCHEMA}",
-                #             columns=[
-                #                 Column(
-                #                     name="field_name",
-                #                     dataType=DataType.STRING,
-                #                     description="First name field"
-                #                 )
-                #             ],
-                #             description="Processed CSV data"
-                #         )
-                        
-                #         target_table = metadata.create_or_update(target_table_request)
-                #         logger.info(f"Created target table: {target_table.name}")
-            
             # Now try to fetch the tables again to create lineage
             source_table = metadata.get_by_name(
                 entity=Table,

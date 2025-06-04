@@ -1,22 +1,45 @@
 services:
  
 
-  dagster_postgresql:
-    image: postgres:11
-    container_name: dagster_postgresql
-    environment:
-      POSTGRES_USER: "postgres_user"
-      POSTGRES_PASSWORD: "postgres_password"
-      POSTGRES_DB: "postgres_db"
-    networks:
-      #- docker_example_network
-      #- dagster_network
-      - ecdwh_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres_user -d postgres_db"]
-      interval: 10s
-      timeout: 8s
-      retries: 5
+  postgres:
+      image: postgres:17-alpine
+      container_name: ragpsqldb
+      hostname: ragpsqldb
+      ports:
+        - '5432:5432'
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      #user: '501:20'
+      environment:
+        - POSTGRES_PASSWORD=ebcont
+        - POSTGRES_USER=ebcont
+        - POSTGRES_DB=ragdb
+      networks:
+        - services_net
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ebcont -d ragdb"]
+        interval: 10s
+        timeout: 8s
+        retries: 5
+
+  # dagster_postgresql:
+  #   image: postgres:11
+  #   container_name: dagster_postgresql
+  #   environment:
+  #     POSTGRES_USER: "postgres_user"
+  #     POSTGRES_PASSWORD: "postgres_password"
+  #     POSTGRES_DB: "postgres_db"
+  #   networks:
+  #     #- docker_example_network
+  #     #- dagster_network
+  #     - services_net
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres_user -d postgres_db"]
+  #     interval: 10s
+  #     timeout: 8s
+  #     retries: 5
+
+
   dagster_file_converter:
     build:
       context: .
@@ -29,26 +52,26 @@ services:
       #DAGSTER_WATCHER_POLLING_INTERVAL: "10"  # Check for changes every 1 second
       #DAGSTER_WATCHER_POLLING: "true"  # Force polling mode
 
-      DAGSTER_POSTGRES_HOST: "dagster_postgresql"
-      DAGSTER_POSTGRES_USER: "postgres_user"
-      DAGSTER_POSTGRES_PASSWORD: "postgres_password"
-      DAGSTER_POSTGRES_DB: "postgres_db"
+      DAGSTER_POSTGRES_HOST: "ragpsqldb"
+      DAGSTER_POSTGRES_USER: "ebcont"
+      DAGSTER_POSTGRES_PASSWORD: "ebcont"
+      DAGSTER_POSTGRES_DB: "dagster_db"
       DAGSTER_CURRENT_IMAGE: "dagster_file_converter_image"
-      DATABASE_IP: "psqldb"
-      DATABASE_PORT: 5432
-      DATABASE_USER: "ebcont"
-      DATABASE_PASSWORD: "ebcont"
-      DATABASE_NAME: "ecdwh"
-      MINIO_ENDPOINT: "http://minio:9001"  # Use service name
-      MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
-      MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
-      MINIO_BUCKET_NAME: "ecvw"
+      # DATABASE_IP: "psqldb"
+      # DATABASE_PORT: 5432
+      # DATABASE_USER: "ebcont"
+      # DATABASE_PASSWORD: "ebcont"
+      # DATABASE_NAME: "ecdwh"
+      # MINIO_ENDPOINT: "http://minio:9001"  # Use service name
+      # MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
+      # MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
+      # MINIO_BUCKET_NAME: "ecvw"
     ports:
       - "4000:4000"  # Ensure this port is exposed
     networks:
       #- docker_example_network
       #- dagster_network
-      - ecdwh_net
+      - services_net
     volumes: 
       - ./my_dagster_code:/opt/dagster/app   #/opt/dagster-data 
       # Add this for better file watching in Docker
@@ -75,23 +98,23 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DAGSTER_POSTGRES_HOST: "dagster_postgresql"
-      DAGSTER_POSTGRES_USER: "postgres_user"
-      DAGSTER_POSTGRES_PASSWORD: "postgres_password"
-      DAGSTER_POSTGRES_DB: "postgres_db"
-      MINIO_ENDPOINT: "http://minio:9001"  # Use service name
-      MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
-      MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
-      MINIO_BUCKET_NAME: "ecvw"
+      DAGSTER_POSTGRES_HOST: "ragpsqldb"
+      DAGSTER_POSTGRES_USER: "ebcont"
+      DAGSTER_POSTGRES_PASSWORD: "ebcont"
+      DAGSTER_POSTGRES_DB: "dagster_db"
+      # MINIO_ENDPOINT: "http://minio:9001"  # Use service name
+      # MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
+      # MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
+      # MINIO_BUCKET_NAME: "ecvw"
     volumes: # Make docker client accessible so we can terminate containers from the webserver
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/io_manager_storage:/tmp/io_manager_storage
     networks:
       #- docker_example_network
       #- dagster_network
-      - ecdwh_net
+      - services_net
     depends_on:
-      dagster_postgresql:
+      postgres:
         condition: service_healthy
       dagster_file_converter:
         condition: service_started
@@ -108,34 +131,28 @@ services:
     container_name: dagster_daemon
     restart: on-failure
     environment:
-      DAGSTER_POSTGRES_HOST: "dagster_postgresql"
-      DAGSTER_POSTGRES_USER: "postgres_user"
-      DAGSTER_POSTGRES_PASSWORD: "postgres_password"
-      DAGSTER_POSTGRES_DB: "postgres_db"
-      DATABASE_IP: "psqldb"
-      DATABASE_PORT: 5432
-      DATABASE_USER: "ebcont"
-      DATABASE_PASSWORD: "ebcont"
-      DATABASE_NAME: "ecdwh"
-      MINIO_ENDPOINT: "http://minio:9001"  # Use service name
-      MINIO_ACCESS_KEY: "gSA619A2YasXm4bPpvww"
-      MINIO_SECRET_KEY: "H33wK6csxAgZl40QHiSr4tHDcFKogM6u6eg6alpb"
-      MINIO_BUCKET_NAME: "ecvw"
+      DAGSTER_POSTGRES_HOST: "ragpsqldb"
+      DAGSTER_POSTGRES_USER: "ebcont"
+      DAGSTER_POSTGRES_PASSWORD: "ebcont"
+      DAGSTER_POSTGRES_DB: "dagster_db"
     volumes: # Make docker client accessible so we can launch containers using host docker
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/io_manager_storage:/tmp/io_manager_storage
     networks:
       #- docker_example_network
       #- dagster_network
-      - ecdwh_net
+      - services_net
     depends_on:
-      dagster_postgresql:
+      postgres:
         condition: service_healthy
       dagster_file_converter:
         condition: service_started
  
 networks:
-  ecdwh_net:
+  services_net:
     driver: bridge
-    name: ecdwh_net
+    name: services_net
     #external: true 
+
+volumes:
+  postgres_data:    
